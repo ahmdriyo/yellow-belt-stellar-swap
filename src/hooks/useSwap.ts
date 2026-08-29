@@ -151,11 +151,21 @@ export function useSwap(address: string | null) {
     ) => {
       const sell = toBase(sellHuman);
       const buy = toBase(buyHuman);
+      if (!sell || !buy) return;
+      const have = BigInt(balances[sellToken] || "0");
+      if (BigInt(sell) > have) {
+        setError({
+          kind: "INSUFFICIENT_BALANCE",
+          message:
+            "You do not hold enough tokens to place this sell order. Use the faucet to mint test tokens first.",
+        });
+        return;
+      }
       return runTx("Place order", (user) =>
         buildPlaceOrderOp(user, sellToken, buyToken, sell, buy)
       );
     },
-    [runTx]
+    [runTx, balances]
   );
 
   const fillOrder = useCallback(
