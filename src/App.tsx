@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "./App.css";
 import { initKit } from "./lib/kit";
 import { useWallet, useSwap } from "./hooks/useSwap";
 import { classifyError } from "./lib/errors";
