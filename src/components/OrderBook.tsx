@@ -7,17 +7,26 @@ export function OrderBook({
   address,
   onFill,
   onCancel,
+  onRefresh,
 }: {
   orders: Order[];
   loading: boolean;
   address: string | null;
   onFill: (id: number) => void;
   onCancel: (id: number) => void;
+  onRefresh: () => void;
 }) {
   return (
     <div className="card">
       <h3>
         Order book {loading && <span className="spinner" />}
+        <button
+          className="btn btn-sm btn-ghost refresh"
+          onClick={onRefresh}
+          title="Refresh orderbook"
+        >
+          ↻
+        </button>
       </h3>
       {orders.length === 0 ? (
         <p className="hint">No open orders yet. Place the first one above.</p>
