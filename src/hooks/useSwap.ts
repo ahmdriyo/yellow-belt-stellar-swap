@@ -16,7 +16,7 @@ import {
   type TxnStatus,
 } from "../lib/stellar";
 import { StellarWalletsKit } from "../lib/kit";
-import type { AppError } from "../lib/errors";
+import { classifyError, type AppError } from "../lib/errors";
 import { TOKENS } from "../config";
 import {
   type Signer,
@@ -172,7 +172,7 @@ export function useSwap(signer: Signer | null) {
           await refreshBalances();
         }
       } catch (e) {
-        setError({ kind: "UNKNOWN", message: String((e as Error).message) });
+        setError(classifyError(e));
         setTx((prev) => ({ ...prev, status: "fail" }));
       }
     },
@@ -206,9 +206,22 @@ export function useSwap(signer: Signer | null) {
 
   const fillOrder = useCallback(
     (orderId: number) => {
+      const order = orders.find((o) => o.id === orderId);
+      if (!order) {
+        setError({ kind: "UNKNOWN", message: "Order not found — it may have been filled or cancelled." });
+        return;
+      }
+      const have = BigInt(balances[order.buy_token] || "0");
+      if (have < BigInt(order.buy_amount)) {
+        setError({
+          kind: "INSUFFICIENT_BALANCE",
+          message: `You need ${order.buy_amount} base units of ${order.buy_token} to fill this order. Click "Mint SWAP1 + SWAP2" first.`,
+        });
+        return;
+      }
       return runTx(`Fill order #${orderId}`, (user) => buildFillOrderOp(orderId, user));
     },
-    [runTx]
+    [runTx, orders, balances]
   );
 
   const cancelOrder = useCallback(
