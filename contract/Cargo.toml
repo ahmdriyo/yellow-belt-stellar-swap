@@ -1,0 +1,15 @@
+[package]
+name = "swap-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { version = "~27.0", default-features = false, features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "~27.0", features = ["testutils"] }
