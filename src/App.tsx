@@ -18,12 +18,21 @@ initKit();
 
 export default function App() {
   const wallet = useWallet();
-  const swap = useSwap(wallet.address);
+  const swap = useSwap(wallet.signer);
   const [modal, setModal] = useState(false);
 
   const handleConnect = async (moduleId: string) => {
     try {
       await wallet.connectWith(moduleId);
+      setModal(false);
+    } catch (e) {
+      swap.setError(classifyError(e));
+    }
+  };
+
+  const handleTestAccount = async () => {
+    try {
+      await wallet.connectTestAccount();
       setModal(false);
     } catch (e) {
       swap.setError(classifyError(e));
@@ -103,6 +112,7 @@ export default function App() {
       {modal && (
         <WalletModal
           onSelect={handleConnect}
+          onTestAccount={handleTestAccount}
           onClose={() => setModal(false)}
         />
       )}

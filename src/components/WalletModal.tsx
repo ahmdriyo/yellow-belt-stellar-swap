@@ -2,9 +2,11 @@ import { SUPPORTED_WALLETS } from "../lib/kit";
 
 export function WalletModal({
   onSelect,
+  onTestAccount,
   onClose,
 }: {
   onSelect: (moduleId: string) => void;
+  onTestAccount: () => void;
   onClose: () => void;
 }) {
   return (
@@ -34,6 +36,16 @@ export function WalletModal({
             </button>
           ))}
         </div>
+        <div className="modal-divider">
+          <span>or</span>
+        </div>
+        <button className="btn btn-ghost test-account" onClick={onTestAccount}>
+          Use a test account (no extension needed)
+        </button>
+        <p className="hint">
+          A throwaway testnet keypair is generated and funded via Friendbot so you
+          can try the full flow without installing a wallet.
+        </p>
       </div>
     </div>
   );

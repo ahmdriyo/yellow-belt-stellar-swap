@@ -454,3 +454,25 @@ a {
   font-weight: 700;
   color: #fff;
 }
+
+.modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #8b93b8;
+  font-size: 12px;
+  margin: 16px 0 12px;
+}
+.modal-divider::before,
+.modal-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #2c355c;
+}
+.test-account {
+  width: 100%;
+}
+.modal .hint {
+  margin-top: 10px;
+}

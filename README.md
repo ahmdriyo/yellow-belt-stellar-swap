@@ -17,20 +17,19 @@ contract event in real time.
 | --- | --- |
 | Public GitHub repository | ✅ (push this repo) |
 | README with setup instructions | ✅ this file |
-| Minimum 2+ meaningful commits | ✅ **11 commits** |
+| Minimum 2+ meaningful commits | ✅ **14+ commits** |
 | Screenshot: wallet options available | ✅ [`docs/wallet-options.png`](docs/wallet-options.png) |
-| Deployed contract address | ✅ `CBMNSJTJ7DE2M3ZAP4MN67F4T2UKOQ5DJ5JYOA3PV3AGCXV56M4GIKGR` |
-| Transaction hash of a contract call | ✅ `16d05c9991c54a1887e4466dc4bf1c9928faaf726a1e0b5e656676677f7c4411` |
+| Deployed contract address | ✅ `CBMWVFURV5P4KA5MRHRU62D63C2S6F3SPOQ3RPBFTJNFNB65VHA3NMYA` |
+| Transaction hash of a contract call | ✅ `b29ffeeede08accd94a2220622650ac6e3f17dfac59213e62407a814c2b8ee1e` |
 | Live demo link (optional) | Deploy the static build to Vercel/Netlify (see below) |
 
 ### Deployed contract (testnet)
-- **Swap / orderbook contract:** [`CBMNSJTJ7DE2M3ZAP4MN67F4T2UKOQ5DJ5JYOA3PV3AGCXV56M4GIKGR`](https://stellar.expert/explorer/testnet/contract/CBMNSJTJ7DE2M3ZAP4MN67F4T2UKOQ5DJ5JYOA3PV3AGCXV56M4GIKGR)
-- **SWAP1 (SAC):** [`CAAMC4NL67YQPCBMRUPIDD4HJBYIKS77YDRGIO3PB24KPAUOULRSYIBB`](https://stellar.expert/explorer/testnet/contract/CAAMC4NL67YQPCBMRUPIDD4HJBYIKS77YDRGIO3PB24KPAUOULRSYIBB)
-- **SWAP2 (SAC):** [`CC2A476ZMZQV2LG5MYOJUX5BOJNTQBGXVLSQWWGRUPW42NR3NWIVFTE4`](https://stellar.expert/explorer/testnet/contract/CC2A476ZMZQV2LG5MYOJUX5BOJNTQBGXVLSQWWGRUPW42NR3NWIVFTE4)
+- **Swap / orderbook contract:** [`CBMWVFURV5P4KA5MRHRU62D63C2S6F3SPOQ3RPBFTJNFNB65VHA3NMYA`](https://stellar.expert/explorer/testnet/contract/CBMWVFURV5P4KA5MRHRU62D63C2S6F3SPOQ3RPBFTJNFNB65VHA3NMYA)
+- **Demo tokens (contract-native, no trustline required):** `SWAP1` & `SWAP2` — minted through the contract `faucet` (100 000 tokens each).
 
 ### Verifiable contract call (testnet)
 - `place_order` transaction hash:
-  [`16d05c9991c54a1887e4466dc4bf1c9928faaf726a1e0b5e656676677f7c4411`](https://stellar.expert/explorer/testnet/tx/16d05c9991c54a1887e4466dc4bf1c9928faaf726a1e0b5e656676677f7c4411)
+  [`b29ffeeede08accd94a2220622650ac6e3f17dfac59213e62407a814c2b8ee1e`](https://stellar.expert/explorer/testnet/tx/b29ffeeede08accd94a2220622650ac6e3f17dfac59213e62407a814c2b8ee1e)
 
 ### Wallet options screenshot
 ![Wallet options available](docs/wallet-options.png)

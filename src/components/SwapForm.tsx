@@ -13,8 +13,8 @@ export function SwapForm({
     buyAmt: string
   ) => void;
 }) {
-  const [sellToken, setSellToken] = useState<string>(TOKEN_LIST[0].contract);
-  const [buyToken, setBuyToken] = useState<string>(TOKEN_LIST[1].contract);
+  const [sellToken, setSellToken] = useState<string>(TOKEN_LIST[0].code);
+  const [buyToken, setBuyToken] = useState<string>(TOKEN_LIST[1].code);
   const [sellAmt, setSellAmt] = useState("");
   const [buyAmt, setBuyAmt] = useState("");
 
@@ -51,7 +51,7 @@ export function SwapForm({
               onChange={(e) => setSellToken(e.target.value)}
             >
               {TOKEN_LIST.map((t) => (
-                <option key={t.contract} value={t.contract}>
+                <option key={t.code} value={t.code}>
                   {t.code}
                 </option>
               ))}
@@ -79,7 +79,7 @@ export function SwapForm({
               onChange={(e) => setBuyToken(e.target.value)}
             >
               {TOKEN_LIST.map((t) => (
-                <option key={t.contract} value={t.contract}>
+                <option key={t.code} value={t.code}>
                   {t.code}
                 </option>
               ))}

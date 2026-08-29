@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { StellarWalletsKit } from "../lib/kit";
+import { Keypair } from "@stellar/stellar-sdk";
 import {
   getOrders,
   tokenBalance,
@@ -15,8 +15,15 @@ import {
   type Order,
   type TxnStatus,
 } from "../lib/stellar";
+import { StellarWalletsKit } from "../lib/kit";
 import type { AppError } from "../lib/errors";
 import { TOKENS } from "../config";
+import {
+  type Signer,
+  walletSigner,
+  keypairSigner,
+  generateTestKeypair,
+} from "../lib/signer";
 
 export interface TxnState {
   hash: string | null;
@@ -33,17 +40,51 @@ export interface LogEntry {
 
 const ZERO_BALANCE_MSG = "Account not funded / insufficient balance to pay fees";
 
+const TEST_SECRET_KEY = "swap_test_secret";
+
 export function useWallet() {
-  const [address, setAddress] = useState<string | null>(null);
+  const [signer, setSigner] = useState<Signer | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const kpRef = useRef<Keypair | null>(null);
+
+  // Restore a previously generated test account across reloads.
+  useEffect(() => {
+    const secret = sessionStorage.getItem(TEST_SECRET_KEY);
+    if (secret) {
+      try {
+        const kp = Keypair.fromSecret(secret);
+        kpRef.current = kp;
+        setSigner(keypairSigner(kp));
+      } catch {
+        sessionStorage.removeItem(TEST_SECRET_KEY);
+      }
+    }
+  }, []);
 
   const connectWith = useCallback(async (moduleId: string) => {
     setConnecting(true);
     try {
       StellarWalletsKit.setWallet(moduleId);
       const { address } = await StellarWalletsKit.authModal();
-      setAddress(address);
+      setSigner(walletSigner(address));
       return address;
+    } finally {
+      setConnecting(false);
+    }
+  }, []);
+
+  const connectTestAccount = useCallback(async () => {
+    setConnecting(true);
+    try {
+      const kp = generateTestKeypair();
+      const res = await fetch(
+        `https://friendbot.stellar.org?addr=${encodeURIComponent(kp.publicKey())}`
+      );
+      if (!res.ok) throw new Error("Friendbot failed to fund the test account");
+      sessionStorage.setItem(TEST_SECRET_KEY, kp.secret());
+      kpRef.current = kp;
+      setSigner(keypairSigner(kp));
+      return kp.publicKey();
     } finally {
       setConnecting(false);
     }
@@ -55,25 +96,25 @@ export function useWallet() {
     } catch {
       /* ignore */
     }
-    setAddress(null);
+    sessionStorage.removeItem(TEST_SECRET_KEY);
+    kpRef.current = null;
+    setSigner(null);
   }, []);
 
-  return { address, connecting, connectWith, disconnect, setAddress };
+  const address = signer?.address ?? null;
+  return { address, signer, connecting, connectWith, connectTestAccount, disconnect };
 }
 
-export function useSwap(address: string | null) {
+export function useSwap(signer: Signer | null) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [balances, setBalances] = useState<Record<string, string>>({});
   const [nativeBalance, setNativeBalance] = useState<string>("0");
-  const [tx, setTx] = useState<TxnState>({
-    hash: null,
-    status: "idle",
-    label: "",
-  });
+  const [tx, setTx] = useState<TxnState>({ hash: null, status: "idle", label: "" });
   const [error, setError] = useState<AppError | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
 
+  const address = signer?.address ?? null;
   const cursorRef = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
 
@@ -98,8 +139,8 @@ export function useSwap(address: string | null) {
     const native = await getNativeBalance(address);
     setNativeBalance(native);
     const entries = await Promise.all(
-      [TOKENS.SWAP1.contract, TOKENS.SWAP2.contract].map(
-        async (id) => [id, await tokenBalance(id, address)] as const
+      [TOKENS.SWAP1.code, TOKENS.SWAP2.code].map(
+        async (code) => [code, await tokenBalance(code, address)] as const
       )
     );
     setBalances(Object.fromEntries(entries));
@@ -107,21 +148,21 @@ export function useSwap(address: string | null) {
 
   const runTx = useCallback(
     async (label: string, build: (user: string) => any) => {
-      if (!address) {
+      if (!signer) {
         setError({
           kind: "WALLET_NOT_FOUND",
-          message: "Connect a wallet before sending a transaction.",
+          message: "Connect a wallet (or use a test account) before sending a transaction.",
         });
         return;
       }
       setError(null);
       try {
-        const native = await getNativeBalance(address);
+        const native = await getNativeBalance(signer.address);
         if (parseFloat(native) < 1) {
           throw new Error(ZERO_BALANCE_MSG);
         }
-        const op = build(address);
-        const { hash } = await submitOperation(op, address);
+        const op = build(signer.address);
+        const { hash } = await submitOperation(op, signer);
         setTx({ hash, status: "pending", label });
         const status = await waitForTransaction(hash, (s) =>
           setTx((prev) => ({ ...prev, status: s }))
@@ -135,7 +176,7 @@ export function useSwap(address: string | null) {
         setTx((prev) => ({ ...prev, status: "fail" }));
       }
     },
-    [address, refreshBalances, refreshOrders]
+    [signer, refreshBalances, refreshOrders]
   );
 
   const faucet = useCallback(() => {
@@ -143,12 +184,7 @@ export function useSwap(address: string | null) {
   }, [runTx]);
 
   const placeOrder = useCallback(
-    (
-      sellToken: string,
-      buyToken: string,
-      sellHuman: string,
-      buyHuman: string
-    ) => {
+    (sellToken: string, buyToken: string, sellHuman: string, buyHuman: string) => {
       const sell = toBase(sellHuman);
       const buy = toBase(buyHuman);
       if (!sell || !buy) return;
@@ -170,18 +206,14 @@ export function useSwap(address: string | null) {
 
   const fillOrder = useCallback(
     (orderId: number) => {
-      return runTx(`Fill order #${orderId}`, (user) =>
-        buildFillOrderOp(orderId, user)
-      );
+      return runTx(`Fill order #${orderId}`, (user) => buildFillOrderOp(orderId, user));
     },
     [runTx]
   );
 
   const cancelOrder = useCallback(
     (orderId: number) => {
-      return runTx(`Cancel order #${orderId}`, (user) =>
-        buildCancelOrderOp(orderId, user)
-      );
+      return runTx(`Cancel order #${orderId}`, (user) => buildCancelOrderOp(orderId, user));
     },
     [runTx]
   );
@@ -213,10 +245,7 @@ export function useSwap(address: string | null) {
           if (!seenRef.current.has(key)) {
             seenRef.current.add(key);
             setLog((prev) =>
-              [{ key, topic: ev.topic, ledger: ev.ledger, at: Date.now() }, ...prev].slice(
-                0,
-                30
-              )
+              [{ key, topic: ev.topic, ledger: ev.ledger, at: Date.now() }, ...prev].slice(0, 30)
             );
           }
           cursorRef.current = Math.max(cursorRef.current, ev.ledger + 1);
@@ -245,6 +274,7 @@ export function useSwap(address: string | null) {
   }, [refreshBalances]);
 
   return {
+    address,
     orders,
     loadingOrders,
     balances,
@@ -272,14 +302,11 @@ function toBase(human: string): string {
 
 async function getLatestLedgerSafe(): Promise<number> {
   try {
-    const res = await fetch(
-      "https://soroban-testnet.stellar.org/GetLatestLedger",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      }
-    );
+    const res = await fetch("https://soroban-testnet.stellar.org/GetLatestLedger", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
     const data = await res.json();
     return Number(data?.result?.sequence ?? 0);
   } catch {

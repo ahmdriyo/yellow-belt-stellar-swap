@@ -7,7 +7,8 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { server } from "./rpc";
-import { StellarWalletsKit, NETWORK_PASSPHRASE } from "./kit";
+import { NETWORK_PASSPHRASE } from "./kit";
+import type { Signer } from "./signer";
 import {
   CONTRACT_ID,
   READ_SOURCE,
@@ -37,6 +38,10 @@ function i128(value: string | number) {
 
 function addr(address: string) {
   return new Address(address).toScVal();
+}
+
+function sym(code: string) {
+  return nativeToScVal(code, { type: "symbol" });
 }
 
 async function readCall(op: any): Promise<any> {
@@ -70,12 +75,13 @@ export async function getOrders(): Promise<Order[]> {
 }
 
 export async function tokenBalance(
-  tokenId: string,
+  tokenCode: string,
   user: string
 ): Promise<string> {
   try {
-    const c = new Contract(tokenId);
-    const raw = await readCall(c.call("balance", addr(user)));
+    const raw = await readCall(
+      contract.call("balance", sym(tokenCode), addr(user))
+    );
     return raw == null ? "0" : String(raw);
   } catch {
     return "0";
@@ -101,15 +107,17 @@ export function fundWithFriendbot(address: string): Promise<Response> {
 }
 
 /**
- * Simulate, sign (via the connected wallet) and submit a contract operation.
- * Returns the transaction hash so the caller can track its status.
+ * Simulate, sign (via the connected wallet or test keypair) and submit a
+ * contract operation. Returns the transaction hash so the caller can track its
+ * status. Note: Soroban transactions may only contain a single InvokeHostFunction
+ * operation — callers should never batch multiple contract invocations.
  */
 export async function submitOperation(
   op: any,
-  userAddress: string
+  signer: Signer
 ): Promise<{ hash: string }> {
-  const account = await server.getAccount(userAddress);
-  let tx = new TransactionBuilder(account, {
+  const account = await server.getAccount(signer.address);
+  const tx = new TransactionBuilder(account, {
     fee: "100",
     networkPassphrase: NETWORK_PASSPHRASE,
   })
@@ -118,12 +126,9 @@ export async function submitOperation(
     .build();
 
   // prepareTransaction simulates the tx and applies auth + resource fees.
-  tx = (await server.prepareTransaction(tx)) as any;
+  const prepared = (await server.prepareTransaction(tx)) as any;
 
-  const { signedTxXdr } = await StellarWalletsKit.signTransaction(tx.toXDR(), {
-    address: userAddress,
-    networkPassphrase: NETWORK_PASSPHRASE,
-  });
+  const signedTxXdr = await signer.sign(prepared.toXDR());
 
   const signed = TransactionBuilder.fromXDR(signedTxXdr, NETWORK_PASSPHRASE);
   const send: any = await server.sendTransaction(signed);
@@ -148,7 +153,7 @@ export async function waitForTransaction(
         onUpdate("success");
         return "success";
       }
-      if (res.status === "FAILED" || res.status === "NOT_FOUND") {
+      if (res.status === "FAILED") {
         onUpdate("fail");
         return "fail";
       }
@@ -171,8 +176,8 @@ export function buildPlaceOrderOp(
   return contract.call(
     "place_order",
     addr(seller),
-    addr(sellToken),
-    addr(buyToken),
+    sym(sellToken),
+    sym(buyToken),
     i128(sellAmount),
     i128(buyAmount)
   );

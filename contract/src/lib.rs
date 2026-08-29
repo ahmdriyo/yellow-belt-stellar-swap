@@ -2,7 +2,6 @@
 use soroban_sdk::{
     contract, contractimpl, contracttype,
     Address, Env, Symbol, Vec,
-    token::{Client as TokenClient, StellarAssetClient},
 };
 
 #[contracttype]
@@ -10,8 +9,8 @@ use soroban_sdk::{
 pub struct Order {
     pub id: u64,
     pub seller: Address,
-    pub sell_token: Address,
-    pub buy_token: Address,
+    pub sell_token: Symbol,
+    pub buy_token: Symbol,
     pub sell_amount: i128,
     pub buy_amount: i128,
     pub active: bool,
@@ -22,49 +21,60 @@ pub enum DataKey {
     Order(u64),
     OrderCount,
     Admin,
-    TokenA,
-    TokenB,
+    // (token, user) -> balance
+    Balance(Symbol, Address),
 }
 
 #[contract]
 pub struct SwapContract;
 
+fn balance(env: &Env, token: &Symbol, user: &Address) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::Balance(token.clone(), user.clone()))
+        .unwrap_or(0)
+}
+
+fn set_balance(env: &Env, token: &Symbol, user: &Address, amount: i128) {
+    env.storage()
+        .persistent()
+        .set(&DataKey::Balance(token.clone(), user.clone()), &amount);
+}
+
 #[contractimpl]
 impl SwapContract {
-    /// Sets the admin and the two demo token addresses used by `faucet`.
-    pub fn initialize(env: Env, admin: Address, token_a: Address, token_b: Address) {
+    /// Sets the admin (used for authorization of future admin-gated calls).
+    pub fn initialize(env: Env, admin: Address) {
         admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::TokenA, &token_a);
-        env.storage().instance().set(&DataKey::TokenB, &token_b);
     }
 
-    /// Mints demo test tokens (token_a + token_b) to the caller so they can
-    /// place and fill orders without needing an external faucet.
+    /// Mints demo test tokens (SWAP1 + SWAP2) to the caller so they can place
+    /// and fill orders without needing a Stellar Asset Contract trustline.
     pub fn faucet(env: Env, user: Address) {
         user.require_auth();
-        let token_a: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenA)
-            .expect("token_a not set");
-        let token_b: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::TokenB)
-            .expect("token_b not set");
         let amount: i128 = 1_000_000_000_000; // 100_000 tokens (7 decimals)
-        StellarAssetClient::new(&env, &token_a).mint(&user, &amount);
-        StellarAssetClient::new(&env, &token_b).mint(&user, &amount);
+        for token in [
+            Symbol::new(&env, "SWAP1"),
+            Symbol::new(&env, "SWAP2"),
+        ] {
+            let cur = balance(&env, &token, &user);
+            set_balance(&env, &token, &user, cur + amount);
+        }
     }
 
-    /// Creates a limit order: the seller deposits `sell_amount` of `sell_token`
-    /// into the contract. Emits an `order_placed` event.
+    /// Read a user's balance for a given demo token.
+    pub fn balance(env: Env, token: Symbol, user: Address) -> i128 {
+        balance(&env, &token, &user)
+    }
+
+    /// Creates a limit order: the seller's `sell_token` is moved into the
+    /// contract's escrow and an order is recorded. Emits `order_placed`.
     pub fn place_order(
         env: Env,
         seller: Address,
-        sell_token: Address,
-        buy_token: Address,
+        sell_token: Symbol,
+        buy_token: Symbol,
         sell_amount: i128,
         buy_amount: i128,
     ) -> u64 {
@@ -72,11 +82,15 @@ impl SwapContract {
         if sell_amount <= 0 || buy_amount <= 0 {
             panic!("amounts must be positive");
         }
-        TokenClient::new(&env, &sell_token).transfer(
-            &seller,
-            &env.current_contract_address(),
-            &sell_amount,
-        );
+        let cur = balance(&env, &sell_token, &seller);
+        if cur < sell_amount {
+            panic!("insufficient balance");
+        }
+        // pull sell tokens from seller into contract escrow
+        set_balance(&env, &sell_token, &seller, cur - sell_amount);
+        let contract = env.current_contract_address();
+        let esc = balance(&env, &sell_token, &contract);
+        set_balance(&env, &sell_token, &contract, esc + sell_amount);
 
         let mut count: u64 = env
             .storage()
@@ -102,9 +116,8 @@ impl SwapContract {
         count
     }
 
-    /// Fills an existing order: the filler pays `buy_amount` of `buy_token` to
-    /// the seller and receives `sell_amount` of `sell_token` from the contract.
-    /// Emits an `order_filled` event.
+    /// Fills an existing order: the filler pays `buy_token` to the seller and
+    /// receives `sell_token` from the contract escrow. Emits `order_filled`.
     pub fn fill_order(env: Env, order_id: u64, filler: Address) {
         filler.require_auth();
         let order: Order = env
@@ -115,12 +128,22 @@ impl SwapContract {
         if !order.active {
             panic!("order not active");
         }
-        TokenClient::new(&env, &order.buy_token).transfer(&filler, &order.seller, &order.buy_amount);
-        TokenClient::new(&env, &order.sell_token).transfer(
-            &env.current_contract_address(),
-            &filler,
-            &order.sell_amount,
-        );
+        let contract = env.current_contract_address();
+
+        // filler pays buy_token to seller
+        let fb = balance(&env, &order.buy_token, &filler);
+        if fb < order.buy_amount {
+            panic!("insufficient balance to fill");
+        }
+        set_balance(&env, &order.buy_token, &filler, fb - order.buy_amount);
+        let sb = balance(&env, &order.buy_token, &order.seller);
+        set_balance(&env, &order.buy_token, &order.seller, sb + order.buy_amount);
+
+        // contract sends sell_token to filler
+        let ce = balance(&env, &order.sell_token, &contract);
+        set_balance(&env, &order.sell_token, &contract, ce - order.sell_amount);
+        let fe = balance(&env, &order.sell_token, &filler);
+        set_balance(&env, &order.sell_token, &filler, fe + order.sell_amount);
 
         let mut closed = order.clone();
         closed.active = false;
@@ -130,8 +153,8 @@ impl SwapContract {
             .publish((Symbol::new(&env, "order_filled"), order_id), order.clone());
     }
 
-    /// Cancels an order and returns the deposited tokens to the seller.
-    /// Emits an `order_cancelled` event.
+    /// Cancels an order and returns the escrowed tokens to the seller.
+    /// Emits `order_cancelled`.
     pub fn cancel_order(env: Env, order_id: u64, seller: Address) {
         seller.require_auth();
         let order: Order = env
@@ -145,11 +168,11 @@ impl SwapContract {
         if order.seller != seller {
             panic!("not the seller");
         }
-        TokenClient::new(&env, &order.sell_token).transfer(
-            &env.current_contract_address(),
-            &seller,
-            &order.sell_amount,
-        );
+        let contract = env.current_contract_address();
+        let ce = balance(&env, &order.sell_token, &contract);
+        set_balance(&env, &order.sell_token, &contract, ce - order.sell_amount);
+        let se = balance(&env, &order.sell_token, &seller);
+        set_balance(&env, &order.sell_token, &seller, se + order.sell_amount);
 
         let mut closed = order.clone();
         closed.active = false;

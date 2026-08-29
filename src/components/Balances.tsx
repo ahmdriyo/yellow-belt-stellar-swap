@@ -14,12 +14,12 @@ export function Balances({
       <ul className="balance-list">
         <li>
           <span>XLM (native)</span>
-          <strong>{formatAmount(nativeBalance, 7)}</strong>
+          <strong>{nativeBalance}</strong>
         </li>
         {TOKEN_LIST.map((t) => (
-          <li key={t.contract}>
+          <li key={t.code}>
             <span>{t.code}</span>
-            <strong>{formatAmount(balances[t.contract], t.decimals)}</strong>
+            <strong>{formatAmount(balances[t.code], t.decimals)}</strong>
           </li>
         ))}
       </ul>
