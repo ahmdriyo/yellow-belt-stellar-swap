@@ -5,14 +5,12 @@ export function OrderBook({
   orders,
   loading,
   address,
-  onFill,
   onCancel,
   onRefresh,
 }: {
   orders: Order[];
   loading: boolean;
   address: string | null;
-  onFill: (id: number) => void;
   onCancel: (id: number) => void;
   onRefresh: () => void;
 }) {
@@ -63,12 +61,7 @@ export function OrderBook({
                         Cancel
                       </button>
                     ) : (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => onFill(o.id)}
-                      >
-                        Fill
-                      </button>
+                      <span className="hint">—</span>
                     )}
                   </td>
                 </tr>

@@ -101,7 +101,6 @@ export default function App() {
             orders={swap.orders}
             loading={swap.loadingOrders}
             address={wallet.address}
-            onFill={swap.fillOrder}
             onCancel={swap.cancelOrder}
             onRefresh={swap.refreshOrders}
           />
