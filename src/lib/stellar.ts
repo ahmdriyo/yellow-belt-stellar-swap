@@ -48,7 +48,6 @@ async function readCall(op: any): Promise<any> {
     .addOperation(op)
     .setTimeout(30)
     .build();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sim: any = await server.simulateTransaction(tx);
   if (sim.error) throw new Error(String(sim.error));
   const retval = sim.result?.retval;
@@ -127,7 +126,6 @@ export async function submitOperation(
   });
 
   const signed = TransactionBuilder.fromXDR(signedTxXdr, NETWORK_PASSPHRASE);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const send: any = await server.sendTransaction(signed);
 
   if (send.status !== "PENDING" && send.status !== "DUPLICATE") {
@@ -215,7 +213,7 @@ export function decodeEvent(e: any): DecodedEvent {
   try {
     topic = String(toNative(e.topic?.[0]));
   } catch {
-    topic = "unknown";
+    /* keep "unknown" */
   }
   let data: any = null;
   try {
@@ -248,7 +246,6 @@ export async function fetchContractEvents(
     ],
     limit: 100,
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const events = (res as any).events ?? [];
   const wanted = ["order_placed", "order_filled", "order_cancelled"];
   return events.map(decodeEvent).filter((ev: DecodedEvent) => wanted.includes(ev.topic));
