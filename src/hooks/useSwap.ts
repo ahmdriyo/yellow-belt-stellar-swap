@@ -38,7 +38,8 @@ export interface LogEntry {
   at: number;
 }
 
-const ZERO_BALANCE_MSG = "Account not funded / insufficient balance to pay fees";
+const ZERO_BALANCE_MSG =
+  "Account not funded / insufficient balance to pay fees";
 
 const TEST_SECRET_KEY = "swap_test_secret";
 
@@ -78,7 +79,7 @@ export function useWallet() {
     try {
       const kp = generateTestKeypair();
       const res = await fetch(
-        `https://friendbot.stellar.org?addr=${encodeURIComponent(kp.publicKey())}`
+        `https://friendbot.stellar.org?addr=${encodeURIComponent(kp.publicKey())}`,
       );
       if (!res.ok) throw new Error("Friendbot failed to fund the test account");
       sessionStorage.setItem(TEST_SECRET_KEY, kp.secret());
@@ -102,7 +103,14 @@ export function useWallet() {
   }, []);
 
   const address = signer?.address ?? null;
-  return { address, signer, connecting, connectWith, connectTestAccount, disconnect };
+  return {
+    address,
+    signer,
+    connecting,
+    connectWith,
+    connectTestAccount,
+    disconnect,
+  };
 }
 
 export function useSwap(signer: Signer | null) {
@@ -110,7 +118,11 @@ export function useSwap(signer: Signer | null) {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [balances, setBalances] = useState<Record<string, string>>({});
   const [nativeBalance, setNativeBalance] = useState<string>("0");
-  const [tx, setTx] = useState<TxnState>({ hash: null, status: "idle", label: "" });
+  const [tx, setTx] = useState<TxnState>({
+    hash: null,
+    status: "idle",
+    label: "",
+  });
   const [error, setError] = useState<AppError | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
 
@@ -140,8 +152,8 @@ export function useSwap(signer: Signer | null) {
     setNativeBalance(native);
     const entries = await Promise.all(
       [TOKENS.SWAP1.code, TOKENS.SWAP2.code].map(
-        async (code) => [code, await tokenBalance(code, address)] as const
-      )
+        async (code) => [code, await tokenBalance(code, address)] as const,
+      ),
     );
     setBalances(Object.fromEntries(entries));
   }, [address]);
@@ -151,7 +163,8 @@ export function useSwap(signer: Signer | null) {
       if (!signer) {
         setError({
           kind: "WALLET_NOT_FOUND",
-          message: "Connect a wallet (or use a test account) before sending a transaction.",
+          message:
+            "Connect a wallet (or use a test account) before sending a transaction.",
         });
         return;
       }
@@ -165,7 +178,7 @@ export function useSwap(signer: Signer | null) {
         const { hash } = await submitOperation(op, signer);
         setTx({ hash, status: "pending", label });
         const status = await waitForTransaction(hash, (s) =>
-          setTx((prev) => ({ ...prev, status: s }))
+          setTx((prev) => ({ ...prev, status: s })),
         );
         if (status === "success") {
           await refreshOrders();
@@ -176,7 +189,7 @@ export function useSwap(signer: Signer | null) {
         setTx((prev) => ({ ...prev, status: "fail" }));
       }
     },
-    [signer, refreshBalances, refreshOrders]
+    [signer, refreshBalances, refreshOrders],
   );
 
   const faucet = useCallback(() => {
@@ -184,7 +197,12 @@ export function useSwap(signer: Signer | null) {
   }, [runTx]);
 
   const placeOrder = useCallback(
-    (sellToken: string, buyToken: string, sellHuman: string, buyHuman: string) => {
+    (
+      sellToken: string,
+      buyToken: string,
+      sellHuman: string,
+      buyHuman: string,
+    ) => {
       const sell = toBase(sellHuman);
       const buy = toBase(buyHuman);
       if (!sell || !buy) return;
@@ -198,17 +216,20 @@ export function useSwap(signer: Signer | null) {
         return;
       }
       return runTx("Place order", (user) =>
-        buildPlaceOrderOp(user, sellToken, buyToken, sell, buy)
+        buildPlaceOrderOp(user, sellToken, buyToken, sell, buy),
       );
     },
-    [runTx, balances]
+    [runTx, balances],
   );
 
   const fillOrder = useCallback(
     (orderId: number) => {
       const order = orders.find((o) => o.id === orderId);
       if (!order) {
-        setError({ kind: "UNKNOWN", message: "Order not found — it may have been filled or cancelled." });
+        setError({
+          kind: "UNKNOWN",
+          message: "Order not found — it may have been filled or cancelled.",
+        });
         return;
       }
       const have = BigInt(balances[order.buy_token] || "0");
@@ -219,16 +240,20 @@ export function useSwap(signer: Signer | null) {
         });
         return;
       }
-      return runTx(`Fill order #${orderId}`, (user) => buildFillOrderOp(orderId, user));
+      return runTx(`Fill order #${orderId}`, (user) =>
+        buildFillOrderOp(orderId, user),
+      );
     },
-    [runTx, orders, balances]
+    [runTx, orders, balances],
   );
 
   const cancelOrder = useCallback(
     (orderId: number) => {
-      return runTx(`Cancel order #${orderId}`, (user) => buildCancelOrderOp(orderId, user));
+      return runTx(`Cancel order #${orderId}`, (user) =>
+        buildCancelOrderOp(orderId, user),
+      );
     },
-    [runTx]
+    [runTx],
   );
 
   const fundWallet = useCallback(async () => {
@@ -258,7 +283,10 @@ export function useSwap(signer: Signer | null) {
           if (!seenRef.current.has(key)) {
             seenRef.current.add(key);
             setLog((prev) =>
-              [{ key, topic: ev.topic, ledger: ev.ledger, at: Date.now() }, ...prev].slice(0, 30)
+              [
+                { key, topic: ev.topic, ledger: ev.ledger, at: Date.now() },
+                ...prev,
+              ].slice(0, 30),
             );
           }
           cursorRef.current = Math.max(cursorRef.current, ev.ledger + 1);
@@ -315,11 +343,14 @@ function toBase(human: string): string {
 
 async function getLatestLedgerSafe(): Promise<number> {
   try {
-    const res = await fetch("https://soroban-testnet.stellar.org/GetLatestLedger", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    });
+    const res = await fetch(
+      "https://soroban-testnet.stellar.org/GetLatestLedger",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      },
+    );
     const data = await res.json();
     return Number(data?.result?.sequence ?? 0);
   } catch {

@@ -10,7 +10,7 @@ export function SwapForm({
     sellToken: string,
     buyToken: string,
     sellAmt: string,
-    buyAmt: string
+    buyAmt: string,
   ) => void;
 }) {
   const [sellToken, setSellToken] = useState<string>(TOKEN_LIST[0].code);
@@ -59,7 +59,12 @@ export function SwapForm({
           </div>
         </label>
 
-        <button type="button" className="switch" onClick={switchSide} aria-label="Switch">
+        <button
+          type="button"
+          className="switch"
+          onClick={switchSide}
+          aria-label="Switch"
+        >
           ↑↓
         </button>
 

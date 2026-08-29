@@ -13,7 +13,9 @@ export function FaucetPanel({
   return (
     <div className="card">
       <h3>Get test funds</h3>
-      {!address && <p className="hint">Connect a wallet to receive test tokens.</p>}
+      {!address && (
+        <p className="hint">Connect a wallet to receive test tokens.</p>
+      )}
       <div className="btn-row">
         <button className="btn" disabled={!address} onClick={onFaucet}>
           Mint SWAP1 + SWAP2

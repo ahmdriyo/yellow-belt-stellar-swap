@@ -43,8 +43,8 @@ export function WalletModal({
           Use a test account (no extension needed)
         </button>
         <p className="hint">
-          A throwaway testnet keypair is generated and funded via Friendbot so you
-          can try the full flow without installing a wallet.
+          A throwaway testnet keypair is generated and funded via Friendbot so
+          you can try the full flow without installing a wallet.
         </p>
       </div>
     </div>
