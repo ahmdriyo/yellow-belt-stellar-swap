@@ -4,14 +4,10 @@ import { tokenCode, shortAddr, formatAmount } from "../lib/format";
 export function OrderBook({
   orders,
   loading,
-  address,
-  onCancel,
   onRefresh,
 }: {
   orders: Order[];
   loading: boolean;
-  address: string | null;
-  onCancel: (id: number) => void;
   onRefresh: () => void;
 }) {
   return (
@@ -36,37 +32,21 @@ export function OrderBook({
               <th>Seller</th>
               <th>Sell</th>
               <th>Buy</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => {
-              const isMine = address && o.seller === address;
-              return (
-                <tr key={o.id}>
-                  <td>{o.id}</td>
-                  <td title={o.seller}>{shortAddr(o.seller)}</td>
-                  <td>
-                    {formatAmount(o.sell_amount)} {tokenCode(o.sell_token)}
-                  </td>
-                  <td>
-                    {formatAmount(o.buy_amount)} {tokenCode(o.buy_token)}
-                  </td>
-                  <td className="actions">
-                    {isMine ? (
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => onCancel(o.id)}
-                      >
-                        Cancel
-                      </button>
-                    ) : (
-                      <span className="hint">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+            {orders.map((o) => (
+              <tr key={o.id}>
+                <td>{o.id}</td>
+                <td title={o.seller}>{shortAddr(o.seller)}</td>
+                <td>
+                  {formatAmount(o.sell_amount)} {tokenCode(o.sell_token)}
+                </td>
+                <td>
+                  {formatAmount(o.buy_amount)} {tokenCode(o.buy_token)}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

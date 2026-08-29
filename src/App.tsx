@@ -100,8 +100,6 @@ export default function App() {
           <OrderBook
             orders={swap.orders}
             loading={swap.loadingOrders}
-            address={wallet.address}
-            onCancel={swap.cancelOrder}
             onRefresh={swap.refreshOrders}
           />
           <EventLog log={swap.log} />
